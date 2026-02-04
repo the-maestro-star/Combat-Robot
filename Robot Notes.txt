@@ -1,0 +1,23 @@
+To-Do
+Find out the motor driver used and the microcontroller used.
+
+
+
+
+Now, it will be imperative to understand and test the motors. Like testing a simple motor to get a feel for how it works.
+
+Check out l293d motor drivers
+L298n motor driver
+I need to think about how I want my  vehicle to work .
+Check out drv8912 q1 motor driver
+
+Learn how esp32 code works.
+<PS4Controller.h
+
+Idea for how the car will work.
+
+On the ps4 controller, the left joystick is for multidirectional movement. The right joystick is for turning the car on its axis. Think of it this way. With the left joystick, the car can move to any point in a straight line with no curves. But the relative rotation of the chassis is zero. So if the front of the car faces north for example. It will always face north using the left joystick. The right joystick, however, is to turn the car on its axis by rotating one wheel faster than the other.(The car has a left and right wheel(2 wheels) ). The spinning of the wheels is trivial. The problem therein lies with the rotation of the wheels(as in to get any point in a straight line) 
+ 
+With this setup. I will need a motor driver that can control 4 motors individually. One for the left wheel. One for the right wheel and one for the servo or something that will turn the wheel and one for the weapon motor. 
+It is worth noting that the only reason I need to control the 2 wheels separately is for the turning on axis movement otherwise no need. But there is a need in this case.
+
