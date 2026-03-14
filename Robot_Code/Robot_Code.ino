@@ -16,14 +16,15 @@ float value;
 float xvalue;
 float yvalue;
 float right_stick_x;
-float xvalueDelay = 0;
-float yvalueDelay = 0;
 float rumble = 0;
 float leftRumble = 0;
 float rightRumble = 0;
+bool  leftActive;
+bool rightActive;
+int activeControl = 0;
 
 // Function to find Position Angle
-    float find_angle(float x, float y){
+  float find_angle(float x, float y){
       float angle = atan2(y,x);
       angle = angle * 180.0/PI; // convert angle to degrees
       return angle;
@@ -32,20 +33,38 @@ float rightRumble = 0;
   void drive(float x, float y) {
     float speed = sqrt(x*x + y*y) * (255.0 / 90.0);
     if(y > 0){
+       //Stop the reverse rotation of wheel
+        BDC1_backward.write(0);
+        BDC2_backward.write(0);
+        //Then Turn Wheel Forward
         BDC1_forward.write(speed);
         BDC2_forward.write(speed);
     } else if(y < 0){
+      //Stop the Forward Rotation of Wheel
+        BDC1_forward.write(0);
+        BDC2_forward.write(0);
+        //Then turn wheel backward
         BDC1_backward.write(speed);
         BDC2_backward.write(speed);
     } else {
         if(x < 0){
+          //Stop the Forward Rotation of Wheel
+            BDC1_forward.write(0);
+            BDC2_forward.write(0);
+            //Then turn wheel backward
             BDC1_backward.write(speed);
             BDC2_backward.write(speed);
         } else if(x > 0){
+          //Stop the reverse rotation of wheel
             BDC1_forward.write(speed);
             BDC2_forward.write(speed);
+            //Then Turn Wheel Forward
+            BDC1_backward.write(0);
+            BDC2_backward.write(0);
         }
     }
+    Serial.print("Speed = ");
+    Serial.println(speed);
 }
 
 
@@ -87,7 +106,7 @@ void setup() {
 
 void loop() {
   if (PS4.isConnected()) {
-    // R2 Weapon Control
+  // R2 Weapon Control
     if(PS4.R2Value()>10){
       value = map(PS4.R2Value(), 0, 255, 30, 90);
       rightRumble = PS4.R2Value();
@@ -100,15 +119,47 @@ void loop() {
     BLDC1.write(value);
     PS4.setRumble(leftRumble, rightRumble);
     PS4.sendToController();
+    //End of Weapon Control
 
-  //Using only left stick to drive
+  
   //Take values from joysticks (from -128 to 127) and map them to a more usable range (-90 to 90)
     xvalue = map(PS4.LStickX(), -128, 127, -90, 90);
     yvalue = map(PS4.LStickY(), -128, 127, 90, -90);
-
+    right_stick_x = map(PS4.RStickX(), -128, 127, -90, 90);
+  //Print out motor values (used for debugging, you probably wont need this)
+    Serial.print("Left Stick x value = ");
+    Serial.println(xvalue);
+    Serial.print("Left_Stick y value = ");
+    Serial.println(yvalue);
+    Serial.print("Right_Stick x value = ");
+    Serial.println(right_stick_x);
  
-  //Declaring the servo angle
-  float angle;
+  
+    leftActive = abs(xvalue) > 10 || abs(yvalue) > 10;//Creating left joystick active state
+    rightActive = abs(right_stick_x) > 10; //Creating right joystick active state
+    
+    // release control when stick returns to neutral
+    if(activeControl == 1 && !leftActive){
+      activeControl = 0;
+    }
+    if(activeControl == 2 && !rightActive){
+      activeControl = 0;
+    }
+
+    // Determining which stick has control
+    if(activeControl == 0){
+      if(leftActive){
+        activeControl = 1;
+      }
+    else if(rightActive){
+        activeControl = 2;
+        }
+      }
+  
+  //Using only left stick to drive
+  if(activeControl == 1){
+    //Declaring the servo angle
+    float angle;
     if (yvalue >= 0) {
     angle = find_angle(xvalue, yvalue);
     } else {
@@ -116,6 +167,8 @@ void loop() {
     }
     //Move Servos to position
     angle = constrain(angle, 0, 180);
+    Serial.print("Angle = ");
+    Serial.println(angle);
     LeftServo.write(angle);
     RightServo.write(angle);
     
@@ -125,36 +178,25 @@ void loop() {
     //Moving the motors
     if(abs(xvalue) < 10) xvalue = 0; //Creating x deadzone 
     if(abs(yvalue)<10) yvalue = 0; //Creating y deadzone 
-    float old_right_stick_x = right_stick_x; //This is to make sure that when the left stick is moving it effectively ignores input from right stick because of interference
-    right_stick_x = 0;
-    drive(xvalue,yvalue); //Drive robot
+    drive(xvalue,yvalue); 
+    }
     delay(5);
-    right_stick_x = old_right_stick_x;
+  
+   
 
     //Rotation of Bot Using Right Stick
-    
-    right_stick_x = map(PS4.RStickX(), -128, 127, -90, 90);
+   
+    if(activeControl == 2){
     if(abs(right_stick_x) < 10) right_stick_x = 0; //Creating x deadzone 
     float new_speed = map(abs(right_stick_x),0,90,0,120);// Chose 0 to 120 because I do not want it to rotate too fast
-    float oldxvalue = xvalue;
-    float oldyvalue = yvalue;
-    xvalue = 0; //This is to make sure that when the right stick is moving it effectively ignores input from left stick because of interference
-    yvalue = 0;//This is to make sure that when the right stick is moving it effectively ignores input from left stick because of interference
-    if (right_stick_x < 0) BDC2_forward.write(new_speed);
-    if (right_stick_x > 0) BDC1_forward.write(new_speed);
-    delay(5);
-    xvalue = oldxvalue;
-    yvalue = oldyvalue;
+    //only rotate wheel if leftstck is not in use.
     
-  
-  //Print out motor values (used for debugging, you probably wont need this)
-  Serial.print("Left Stick x value = ");
-  Serial.println(xvalue);
-  Serial.print("Left_Stick y value = ");
-  Serial.println(yvalue);
-  Serial.print("Angle = ");
-  Serial.println(angle);
-  Serial.print("Speed = ");
-  Serial.println(speed);
-   }
+      if (right_stick_x < 0) {BDC1_forward.write(0); BDC2_forward.write(new_speed); } // Stop left wheel, move right wheel
+      if (right_stick_x > 0) {BDC2_forward.write(0); BDC1_forward.write(new_speed); } //Stop right wheel, move left wheel
+    }
+    
+    
+    delay(5);
+   
+  }
 }
